@@ -8,9 +8,11 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
   },
   "dependencies": {
+    "google-auth-library": "^10.3.0",
     "ws": "^8.18.0"
   }
 }

@@ -2,6 +2,7 @@
 
 Servidor WebSocket do QUADRIX (naves multiplayer na mesma fase). Repositório
 separado do jogo (front vai para a Vercel, este servidor vai para o Render).
+Também valida tokens de login Google em `POST /auth/google`.
 
 ## Rodando local
 
@@ -12,19 +13,40 @@ npm run dev     # node --watch, reinicia ao salvar
 
 Porta padrão: `8787` (ou `PORT` do ambiente). Healthcheck em `GET /health`.
 
+## Login com Google
+
+Crie um cliente OAuth do tipo **Aplicativo da Web** no mesmo projeto Google
+Cloud do cliente Android. Configure o ID do cliente Web como `GOOGLE_CLIENT_ID`
+no Render e envie o mesmo ID como `VITE_GOOGLE_WEB_CLIENT_ID` no build do jogo.
+O endpoint valida a assinatura, audiência, validade e e-mail verificado do
+token com o Google; não armazena tokens nem sincroniza progresso.
+
 ## Protocolo
 
 Ver `src/protocol.js` — espelhado manualmente em
 `QUADRIX/src/services/MultiplayerService.js`. Mudou um lado, muda o outro.
 
-- Cliente → servidor: `join {room, name, shipId}`, `move {angle, speed}`, `shot
-  {angle, originX, originY, bulletSpeed, shotId}`.
+- Cliente → servidor: `join {room, name, shipId, position, forward, angle,
+  speed, altitude}`, `rename {name}`, `move {position, forward, angle, speed, altitude}`, `shot
+  {angle, originX, originY, bulletSpeed, shotId}`, `enemySpawn {enemy}`,
+  `enemyStates {enemies}`, `enemyDamage {id, damage}` e `enemyShot {shot}`.
+  `position` e `forward` dos jogadores são vetores 3D no referencial comum do
+  planeta; `forward` aponta o bico da nave. Estados de inimigos sincronizam
+  posição, altitude e vida; o giro visual é calculado localmente em cada cliente.
 - Servidor → cliente: `welcome`, `playerJoin`, `playerLeave`, `tick`, `shot`,
-  `hit`.
+  `hit`, `enemySpawn`, `enemyStates`, `enemyDamage` e `enemyAuthority`.
 
-O servidor é autoritativo (sempre sabe x/y de cada jogador), mas só transmite
-`x`/`y` a cada `RESYNC_EVERY_TICKS` ticks — o resto do tempo manda só
-`angle`/`speed`, e quem recebe reconstrói a posição por dead-reckoning.
+As mensagens `welcome`, `playerJoin` e `tick` retransmitem a posição 3D e a
+direção do bico. `rename` atualiza o nome de todos os jogadores conectados.
+Cada cliente projeta esses mesmos vetores no próprio ponto de vista do planeta.
+
+O primeiro jogador da sala é a autoridade dos inimigos: só ele cria e transmite
+os estados de movimento; o servidor valida dano e replica HP/morte. `welcome`
+inclui `isEnemyHost` e a lista de inimigos vivos para clientes que entram depois.
+Se a autoridade sair, a sala limpa os inimigos e elege o próximo jogador, que
+recria a população. A autoridade também replica cada disparo inimigo com origem,
+alvo e velocidade para os demais clientes. Mortes e respawns dos jogadores
+continuam independentes.
 
 ## Deploy no Render
 
