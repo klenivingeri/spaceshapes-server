@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, HIT, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
+import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, HIT, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
-const IDLE_TIMEOUT_MS = 120_000;
+const IDLE_TIMEOUT_MS = 60_000;
 const HIT_RADIUS = 24; // px: raio de acerto contra a posição autoritativa do alvo
 const SHOT_MAX_LIFETIME_MS = 2000;
 const SHOT_DAMAGE = 10;
 const START_HP = 100;
 const MAX_ROOM_ENEMIES = 512;
+const PART_DROP_CHANCE = 0.06;
+const CHIP_DROP_CHANCE = 0.05;
+const DROP_OWNER_WINDOW_MS = 10_000;
+const SESSION_REPLACED_CODE = 4002;
+const SESSION_REPLACED_REASON = 'session replaced';
 
 function sendJson(ws, message) {
   if (ws.readyState !== ws.OPEN) return;
@@ -20,6 +25,7 @@ export class Room {
     this.players = new Map(); // id -> { ws, name, shipId, position, forward, altitude, x, y, angle, speed, hp }
     this.enemyAuthorityId = null;
     this.enemies = new Map();
+    this.drops = new Map();
     this.pendingShots = []; // { shotId, ownerId, angle, x, y, bulletSpeed, bornAt }
     this.tickCount = 0;
     this.interval = setInterval(() => this.tick(), TICK_MS);
@@ -50,11 +56,16 @@ export class Room {
     };
   }
 
-  join(ws, { name, shipId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0 }) {
+  join(ws, {
+    name, shipId, identityId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0,
+  }) {
+    this.evictDuplicateIdentity(identityId);
     const id = randomUUID();
-    if (!this.enemyAuthorityId) this.enemyAuthorityId = id;
+    const previousAuthorityId = this.enemyAuthorityId;
+    const assignsEnemyAuthority = !previousAuthorityId || this.enemies.size === 0;
+    if (assignsEnemyAuthority) this.enemyAuthorityId = id;
     this.players.set(id, {
-      ws, name, shipId, position, forward, altitude,
+      ws, name, shipId, identityId, position, forward, altitude,
       x: 0, y: 0, angle, speed, hp: START_HP, lastActivityAt: Date.now(), closingForIdle: false,
     });
     sendJson(ws, {
@@ -63,8 +74,12 @@ export class Room {
       isEnemyHost: this.enemyAuthorityId === id,
       players: [...this.players.keys()].filter((otherId) => otherId !== id).map((otherId) => this.publicPlayer(otherId)),
       enemies: [...this.enemies.values()].filter((enemy) => enemy.alive),
+      drops: [...this.drops.values()].map((drop) => this.publicDrop(drop)),
     });
     this.broadcast({ t: PLAYER_JOIN, ...this.publicPlayer(id) }, id);
+    if (assignsEnemyAuthority && previousAuthorityId) {
+      this.broadcast({ t: ENEMY_AUTHORITY, id });
+    }
     return id;
   }
 
@@ -111,7 +126,54 @@ export class Room {
     enemy.hp = Math.max(0, enemy.hp - damage);
     enemy.alive = enemy.hp > 0;
     this.broadcast({ t: ENEMY_DAMAGE, id: enemyId, damage, hp: enemy.hp, killerId: id, dead: !enemy.alive });
-    if (!enemy.alive) this.enemies.delete(enemyId);
+    if (!enemy.alive) {
+      this.enemies.delete(enemyId);
+      this.createEnemyDrops(enemy, id);
+    }
+  }
+
+  createEnemyDrops(enemy, ownerId) {
+    const options = enemy.dropOptions;
+    if (!options) return;
+    if (options.parts.length && Math.random() < PART_DROP_CHANCE) {
+      const { part, shipId } = options.parts[Math.floor(Math.random() * options.parts.length)];
+      this.createDrop(enemy, ownerId, { partDrop: { part, shipId } });
+    }
+    if (options.chips.length && Math.random() < CHIP_DROP_CHANCE) {
+      const chipDrop = options.chips[Math.floor(Math.random() * options.chips.length)];
+      this.createDrop(enemy, ownerId, { chipDrop });
+    }
+  }
+
+  createDrop(enemy, ownerId, item) {
+    const drop = {
+      id: randomUUID(),
+      ...item,
+      position: [...enemy.position],
+      altitude: enemy.altitude,
+      ownerId,
+      ownerUntil: Date.now() + DROP_OWNER_WINDOW_MS,
+    };
+    this.drops.set(drop.id, drop);
+    this.broadcast({ t: ENEMY_DROP, drop: this.publicDrop(drop) });
+  }
+
+  publicDrop(drop) {
+    return {
+      id: drop.id,
+      ...(drop.partDrop ? { partDrop: drop.partDrop } : { chipDrop: drop.chipDrop }),
+      position: drop.position,
+      altitude: drop.altitude,
+      ownerId: drop.ownerId,
+      ownerRemainingMs: Math.max(0, drop.ownerUntil - Date.now()),
+    };
+  }
+
+  handleDropPickup(playerId, dropId) {
+    const drop = this.drops.get(dropId);
+    if (!drop || (playerId !== drop.ownerId && Date.now() < drop.ownerUntil)) return;
+    this.drops.delete(dropId);
+    this.broadcast({ t: DROP_COLLECTED, id: dropId, pickerId: playerId });
   }
 
   handleEnemyShot(id, shot) {
@@ -124,6 +186,16 @@ export class Room {
     if (!player || player.name === name) return;
     player.name = name;
     this.broadcast({ t: PLAYER_RENAME, id, name });
+  }
+
+  evictDuplicateIdentity(identityId, exceptId = null) {
+    if (!identityId) return;
+    for (const [id, player] of this.players) {
+      if (id === exceptId || player.identityId !== identityId) continue;
+      player.ws.close(SESSION_REPLACED_CODE, SESSION_REPLACED_REASON);
+      this.leave(id);
+      return;
+    }
   }
 
   handleMove(id, { position, forward, angle, speed, altitude }) {

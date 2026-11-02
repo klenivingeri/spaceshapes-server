@@ -1,8 +1,8 @@
 import { WebSocketServer } from 'ws';
 import { createHttpServer } from './httpServer.js';
 import {
-  ACTIVITY, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, RENAME, SHOT,
-  isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidJoin, isValidMove, isValidRename, isValidShot,
+  ACTIVITY, DROP_PICKUP, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, RENAME, SHOT,
+  isValidDropPickup, isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidIdentityId, isValidJoin, isValidMove, isValidRename, isValidShot,
 } from './protocol.js';
 import { RoomRegistry } from './room.js';
 
@@ -31,6 +31,7 @@ wss.on('connection', (ws) => {
       playerId = room.join(ws, {
         name: message.name,
         shipId: message.shipId,
+        identityId: message.identityId,
         position: message.position,
         forward: message.forward,
         angle: message.angle,
@@ -60,6 +61,8 @@ wss.on('connection', (ws) => {
       room.handleEnemyStates(playerId, message.enemies);
     } else if (message.t === ENEMY_DAMAGE && isValidEnemyDamage(message)) {
       room.handleEnemyDamage(playerId, message);
+    } else if (message.t === DROP_PICKUP && isValidDropPickup(message)) {
+      room.handleDropPickup(playerId, message.id);
     } else if (message.t === ENEMY_SHOT && isValidEnemyShot(message.shot)) {
       room.handleEnemyShot(playerId, message.shot);
     }
