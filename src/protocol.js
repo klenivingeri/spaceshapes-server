@@ -4,6 +4,7 @@
 
 // Cliente -> servidor
 export const JOIN = 'join';
+export const ACTIVITY = 'activity';
 export const MOVE = 'move';
 export const RENAME = 'rename';
 export const SHOT = 'shot';

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, HIT, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
+const IDLE_TIMEOUT_MS = 120_000;
 const HIT_RADIUS = 24; // px: raio de acerto contra a posição autoritativa do alvo
 const SHOT_MAX_LIFETIME_MS = 2000;
 const SHOT_DAMAGE = 10;
@@ -54,7 +55,7 @@ export class Room {
     if (!this.enemyAuthorityId) this.enemyAuthorityId = id;
     this.players.set(id, {
       ws, name, shipId, position, forward, altitude,
-      x: 0, y: 0, angle, speed, hp: START_HP,
+      x: 0, y: 0, angle, speed, hp: START_HP, lastActivityAt: Date.now(), closingForIdle: false,
     });
     sendJson(ws, {
       t: WELCOME,
@@ -97,9 +98,9 @@ export class Room {
         forward: state.forward,
         altitude: state.altitude,
         radius: state.radius,
-        hp: Math.min(enemy.maxHp, state.hp),
+        hp: Math.min(enemy.hp, state.hp),
       });
-      accepted.push(state);
+      accepted.push({ ...state, hp: enemy.hp });
     }
     if (accepted.length) this.broadcast({ t: ENEMY_STATES, enemies: accepted }, id);
   }
@@ -133,6 +134,11 @@ export class Room {
     if (altitude !== undefined) player.altitude = altitude;
     player.angle = angle;
     player.speed = speed;
+  }
+
+  handleActivity(id) {
+    const player = this.players.get(id);
+    if (player) player.lastActivityAt = Date.now();
   }
 
   handleShot(id, { angle, originX, originY, bulletSpeed, shotId }) {
@@ -171,6 +177,12 @@ export class Room {
   }
 
   tick() {
+    const now = Date.now();
+    for (const player of this.players.values()) {
+      if (player.closingForIdle || now - player.lastActivityAt < IDLE_TIMEOUT_MS) continue;
+      player.closingForIdle = true;
+      player.ws.close(4000, 'idle timeout');
+    }
     const dtMs = TICK_MS;
     const dt = dtMs / 1000;
     for (const player of this.players.values()) {

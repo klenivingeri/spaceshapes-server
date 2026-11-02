@@ -1,7 +1,7 @@
 import { WebSocketServer } from 'ws';
 import { createHttpServer } from './httpServer.js';
 import {
-  ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, RENAME, SHOT,
+  ACTIVITY, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, RENAME, SHOT,
   isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidJoin, isValidMove, isValidRename, isValidShot,
 } from './protocol.js';
 import { RoomRegistry } from './room.js';
@@ -40,7 +40,9 @@ wss.on('connection', (ws) => {
       return;
     }
     if (!room || !playerId) return; // mensagens antes do join não valem
-    if (message.t === RENAME && isValidRename(message)) {
+    if (message.t === ACTIVITY) {
+      room.handleActivity(playerId);
+    } else if (message.t === RENAME && isValidRename(message)) {
       room.handleRename(playerId, message.name.trim());
     } else if (message.t === MOVE && isValidMove(message)) {
       room.handleMove(playerId, {
