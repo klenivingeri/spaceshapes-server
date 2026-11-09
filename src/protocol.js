@@ -21,7 +21,6 @@ export const PLAYER_LEAVE = 'playerLeave';
 export const PLAYER_RENAME = 'playerRename';
 export const TICK = 'tick';
 export const REMOTE_SHOT = 'shot';
-export const HIT = 'hit';
 export const ENEMY_AUTHORITY = 'enemyAuthority';
 export const ENEMY_DROP = 'enemyDrop';
 export const DROP_COLLECTED = 'dropCollected';
@@ -30,6 +29,11 @@ export const DROP_COLLECTED = 'dropCollected';
 // o drift do dead-reckoning do cliente). 10 ticks a 20 Hz = 500 ms.
 export function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+// Nível do jogador (quem o monstro mundial vigia é o de maior nível, ver PlanetScene.strongestPlayer).
+function isLevel(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 999;
 }
 
 function isVector3(value) {
@@ -63,7 +67,8 @@ export function isValidJoin(payload) {
     && (!('forward' in payload) || isVector3(payload.forward))
     && (!('altitude' in payload) || (isFiniteNumber(payload.altitude) && payload.altitude >= 0))
     && (!('angle' in payload) || isFiniteNumber(payload.angle))
-    && (!('speed' in payload) || (isFiniteNumber(payload.speed) && payload.speed >= 0));
+    && (!('speed' in payload) || (isFiniteNumber(payload.speed) && payload.speed >= 0))
+    && (!('level' in payload) || isLevel(payload.level));
 }
 
 export function isValidIdentityId(identityId) {
@@ -75,7 +80,8 @@ export function isValidMove(payload) {
   return payload && isFiniteNumber(payload.angle) && isFiniteNumber(payload.speed) && payload.speed >= 0
     && (!('position' in payload) || isVector3(payload.position))
     && (!('forward' in payload) || isVector3(payload.forward))
-    && (!('altitude' in payload) || (isFiniteNumber(payload.altitude) && payload.altitude >= 0));
+    && (!('altitude' in payload) || (isFiniteNumber(payload.altitude) && payload.altitude >= 0))
+    && (!('level' in payload) || isLevel(payload.level));
 }
 
 export function isValidRename(payload) {
@@ -83,13 +89,21 @@ export function isValidRename(payload) {
     && payload.name.trim().length > 0 && payload.name.trim().length <= 24;
 }
 
+// Tiro do jogador: só para onde a nave apontava. `position` (ponto unitário da esfera, onde o tiro nasce) e `forward` (direção tangente) vêm no
+// referencial comum do planeta, e o resto descreve o voo (velocidade em px/s, altura de saída e de chegada, subida em px/s, alcance em px,
+// espaço aéreo). `bullet` e `index` dizem qual tiro do catálogo desenhar. Quem recebe calcula a trajetória; o servidor não segue o projétil.
 export function isValidShot(payload) {
   return payload
-    && isFiniteNumber(payload.angle)
-    && isFiniteNumber(payload.originX)
-    && isFiniteNumber(payload.originY)
-    && isFiniteNumber(payload.bulletSpeed)
-    && typeof payload.shotId === 'string' && payload.shotId.length > 0;
+    && typeof payload.shotId === 'string' && payload.shotId.length > 0 && payload.shotId.length <= 80
+    && isVector3(payload.position) && isVector3(payload.forward)
+    && isFiniteNumber(payload.speed) && payload.speed > 0 && payload.speed <= 10000
+    && isFiniteNumber(payload.altitude) && payload.altitude >= 0
+    && isFiniteNumber(payload.targetAltitude) && payload.targetAltitude >= 0
+    && isFiniteNumber(payload.climb)
+    && isFiniteNumber(payload.range) && payload.range > 0 && payload.range <= 20000
+    && Number.isInteger(payload.airspace) && payload.airspace >= -1 && payload.airspace <= 8
+    && typeof payload.bullet === 'string' && payload.bullet.length > 0 && payload.bullet.length <= 40
+    && Number.isInteger(payload.index) && payload.index >= 0 && payload.index < 16;
 }
 
 export function isValidEnemySpawn(payload) {

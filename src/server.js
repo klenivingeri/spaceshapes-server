@@ -37,6 +37,7 @@ wss.on('connection', (ws) => {
         angle: message.angle,
         speed: message.speed,
         altitude: message.altitude,
+        level: message.level,
       });
       return;
     }
@@ -52,6 +53,7 @@ wss.on('connection', (ws) => {
         angle: message.angle,
         speed: message.speed,
         altitude: message.altitude,
+        level: message.level,
       });
     } else if (message.t === SHOT && isValidShot(message)) {
       room.handleShot(playerId, message);

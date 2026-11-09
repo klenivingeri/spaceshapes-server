@@ -130,7 +130,7 @@ test('desconecta no servidor jogador após um minuto sem atividade e mantém jog
   try {
     const inactiveId = room.join(inactive, { name: 'Inativo', shipId: 'ship' });
     const activeId = room.join(active, { name: 'Ativo', shipId: 'ship' });
-    room.players.get(inactiveId).lastActivityAt = Date.now() - 60_000;
+    room.players.get(inactiveId).lastActivityAt = Date.now() - 300_000;
     room.handleActivity(activeId);
 
     room.tick();
@@ -290,4 +290,141 @@ test('somente a autoridade cria inimigos, estados são retransmitidos e dano é 
   } finally {
     room.dispose();
   }
+});
+
+test('o tiro só é repassado aos outros jogadores, com para onde a nave apontava (o servidor não segue o projétil)', () => {
+  const room = new Room('test');
+  const first = socket();
+  const second = socket();
+  try {
+    const shooterId = room.join(first, { name: 'A', shipId: 'ship' });
+    room.join(second, { name: 'B', shipId: 'ship' });
+    const shot = {
+      shotId: 'a-1', position: [0, 0, 1], forward: [1, 0, 0], speed: 300, altitude: 20, targetAltitude: 60, climb: 12, range: 540, airspace: -1, bullet: 'single', index: 0, extra: 'ignorado',
+    };
+    const before = first.messages.length;
+    room.handleShot(shooterId, shot);
+    const { extra, ...relayed } = shot;
+    assert.deepEqual(second.messages.at(-1), { t: 'shot', id: shooterId, ...relayed });
+    assert.equal(first.messages.length, before);   // quem atirou não recebe o próprio tiro de volta
+    room.tick();
+    assert.equal(second.messages.some((message) => message.t === 'hit'), false);   // nada de acerto calculado no servidor
+  } finally {
+    room.dispose();
+  }
+});
+
+test('o nível do jogador entra no join e no move e vai para os outros no tick', () => {
+  const room = new Room('test');
+  const first = socket();
+  const second = socket();
+  try {
+    const firstId = room.join(first, { name: 'A', shipId: 'ship', level: 7 });
+    room.join(second, { name: 'B', shipId: 'ship' });
+    assert.equal(second.messages[0].players[0].level, 7);
+    room.handleMove(firstId, { angle: 0, speed: 0, level: 8 });
+    room.tick();
+    assert.equal(second.messages.at(-1).players.find((player) => player.id === firstId).level, 8);
+    assert.equal(second.messages.at(-1).players.find((player) => player.id !== firstId).level, 1);
+  } finally {
+    room.dispose();
+  }
+});
+
+// Host dos inimigos: o servidor passa o papel adiante se ele atrasar demais.
+function roomWithHost(clock) {
+  const room = new Room('watchdog');
+  const host = socket();
+  const guest = socket();
+  const firstId = room.join(host, { name: 'A', shipId: 'ship' });
+  const secondId = room.join(guest, { name: 'B', shipId: 'ship' });
+  // Sem inimigos na sala, quem entra por último assume o papel de host (ver Room.join).
+  const hostId = room.enemyAuthorityId;
+  const guestId = hostId === firstId ? secondId : firstId;
+  room.handleEnemySpawn(hostId, { id: 'e1', spot: {}, hp: 3 });
+  const sendStates = () => room.handleEnemyStates(hostId, [{ id: 'e1', position: [0, 0, 1], forward: [1, 0, 0], altitude: 0, radius: 1, hp: 3 }]);
+  sendStates();
+  room.tick();
+  return { room, hostId, guestId, guests: { [firstId]: host, [secondId]: guest }, sendStates, clock };
+}
+
+function withFakeClock(run) {
+  const realNow = Date.now;
+  const clock = { now: realNow() };
+  Date.now = () => clock.now;
+  try { run(clock); } finally { Date.now = realNow; }
+}
+
+test('host em silêncio por mais de 2 s perde o papel na hora', () => {
+  withFakeClock((clock) => {
+    const { room, guestId, guests } = roomWithHost(clock);
+    try {
+      clock.now += 2100;
+      room.tick();
+      assert.equal(room.enemyAuthorityId, guestId);
+      assert.deepEqual(guests[guestId].messages.filter((message) => message.t === 'enemyAuthority').at(-1), { t: 'enemyAuthority', id: guestId });
+    } finally { room.dispose(); }
+  });
+});
+
+test('host que atrasa 3 vezes perde o papel; 2 atrasos não bastam', () => {
+  withFakeClock((clock) => {
+    const { room, hostId, guestId, sendStates } = roomWithHost(clock);
+    try {
+      for (let late = 1; late <= 3; late++) {
+        clock.now += 600;
+        room.tick();   // passou de 500 ms sem mandar: um atraso
+        if (late < 3) {
+          assert.equal(room.enemyAuthorityId, hostId, `${late} atraso(s) ainda é tolerado`);
+          sendStates();   // voltou: a parada acabou
+        }
+      }
+      assert.equal(room.enemyAuthorityId, guestId);
+    } finally { room.dispose(); }
+  });
+});
+
+test('uma parada longa conta um atraso só', () => {
+  withFakeClock((clock) => {
+    const { room, hostId } = roomWithHost(clock);
+    try {
+      clock.now += 600;
+      room.tick();
+      clock.now += 600;
+      room.tick();
+      clock.now += 600;
+      room.tick();
+      assert.equal(room.enemyAuthorityId, hostId, '1,8 s parado ainda é um atraso, abaixo do silêncio total');
+    } finally { room.dispose(); }
+  });
+});
+
+test('atrasos antigos expiram', () => {
+  withFakeClock((clock) => {
+    const { room, hostId, sendStates } = roomWithHost(clock);
+    try {
+      for (let late = 0; late < 5; late++) {
+        clock.now += 600;
+        room.tick();
+        sendStates();
+        clock.now += 11_000;   // longe da janela de 10 s
+        sendStates();
+        room.tick();
+      }
+      assert.equal(room.enemyAuthorityId, hostId);
+    } finally { room.dispose(); }
+  });
+});
+
+test('sozinho na sala o host nunca é trocado', () => {
+  withFakeClock((clock) => {
+    const room = new Room('solo');
+    try {
+      const hostId = room.join(socket(), { name: 'A', shipId: 'ship' });
+      room.handleEnemySpawn(hostId, { id: 'e1', spot: {}, hp: 3 });
+      clock.now += 5000;
+      room.tick();
+      assert.equal(room.enemyAuthorityId, hostId);
+    } finally { room.dispose(); }
+  });
 });

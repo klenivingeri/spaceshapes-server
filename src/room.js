@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, HIT, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
+import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
-const IDLE_TIMEOUT_MS = 60_000;
-const HIT_RADIUS = 24; // px: raio de acerto contra a posição autoritativa do alvo
-const SHOT_MAX_LIFETIME_MS = 2000;
-const SHOT_DAMAGE = 10;
+const IDLE_TIMEOUT_MS = 300_000;
+// Vigia do host dos inimigos (ver watchEnemyHost): ele manda `enemyStates` a cada 100 ms. Passar de HOST_LATE_MS sem mandar é um atraso;
+// HOST_MAX_LATE atrasos em HOST_LATE_WINDOW_MS, ou HOST_SILENT_MS de silêncio, tiram o papel dele.
+const HOST_LATE_MS = 500;
+const HOST_SILENT_MS = 2000;
+const HOST_MAX_LATE = 3;
+const HOST_LATE_WINDOW_MS = 10_000;
 const START_HP = 100;
 const MAX_ROOM_ENEMIES = 512;
 const PART_DROP_CHANCE = 0.06;
@@ -24,9 +27,9 @@ export class Room {
     this.id = id;
     this.players = new Map(); // id -> { ws, name, shipId, position, forward, altitude, x, y, angle, speed, hp }
     this.enemyAuthorityId = null;
+    this.hostWatch = { hostId: null, lastStatesAt: 0, stalled: false, lateAt: [] };
     this.enemies = new Map();
     this.drops = new Map();
-    this.pendingShots = []; // { shotId, ownerId, angle, x, y, bulletSpeed, bornAt }
     this.tickCount = 0;
     this.interval = setInterval(() => this.tick(), TICK_MS);
   }
@@ -52,12 +55,13 @@ export class Room {
       y: player.y,
       angle: player.angle,
       speed: player.speed,
+      level: player.level,
       hp: player.hp,
     };
   }
 
   join(ws, {
-    name, shipId, identityId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0,
+    name, shipId, identityId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0, level = 1,
   }) {
     this.evictDuplicateIdentity(identityId);
     const id = randomUUID();
@@ -66,7 +70,7 @@ export class Room {
     if (assignsEnemyAuthority) this.enemyAuthorityId = id;
     this.players.set(id, {
       ws, name, shipId, identityId, position, forward, altitude,
-      x: 0, y: 0, angle, speed, hp: START_HP, lastActivityAt: Date.now(), closingForIdle: false,
+      x: 0, y: 0, angle, speed, level, hp: START_HP, lastActivityAt: Date.now(), closingForIdle: false,
     });
     sendJson(ws, {
       t: WELCOME,
@@ -86,7 +90,6 @@ export class Room {
   leave(id) {
     if (!this.players.has(id)) return;
     this.players.delete(id);
-    this.pendingShots = this.pendingShots.filter((shot) => shot.ownerId !== id);
     this.broadcast({ t: PLAYER_LEAVE, id });
     if (this.enemyAuthorityId === id) {
       this.enemies.clear();
@@ -104,6 +107,8 @@ export class Room {
 
   handleEnemyStates(id, states) {
     if (id !== this.enemyAuthorityId) return;
+    this.hostWatch.lastStatesAt = Date.now();
+    this.hostWatch.stalled = false;
     const accepted = [];
     for (const state of states) {
       const enemy = this.enemies.get(state.id);
@@ -198,7 +203,7 @@ export class Room {
     }
   }
 
-  handleMove(id, { position, forward, angle, speed, altitude }) {
+  handleMove(id, { position, forward, angle, speed, altitude, level }) {
     const player = this.players.get(id);
     if (!player) return;
     if (position) player.position = position;
@@ -206,6 +211,7 @@ export class Room {
     if (altitude !== undefined) player.altitude = altitude;
     player.angle = angle;
     player.speed = speed;
+    if (level !== undefined) player.level = level;
   }
 
   handleActivity(id) {
@@ -213,43 +219,69 @@ export class Room {
     if (player) player.lastActivityAt = Date.now();
   }
 
-  handleShot(id, { angle, originX, originY, bulletSpeed, shotId }) {
+  // O tiro do jogador é só repassado aos outros, com para onde a nave apontava (ver isValidShot): quem recebe calcula a trajetória.
+  handleShot(id, shot) {
     if (!this.players.has(id)) return;
-    this.pendingShots.push({ shotId, ownerId: id, angle, x: originX, y: originY, bulletSpeed, bornAt: Date.now() });
-    this.broadcast({ t: REMOTE_SHOT, id, angle, originX, originY, bulletSpeed, shotId }, id);
+    this.broadcast({
+      t: REMOTE_SHOT,
+      id,
+      shotId: shot.shotId,
+      position: shot.position,
+      forward: shot.forward,
+      speed: shot.speed,
+      altitude: shot.altitude,
+      targetAltitude: shot.targetAltitude,
+      climb: shot.climb,
+      range: shot.range,
+      airspace: shot.airspace,
+      bullet: shot.bullet,
+      index: shot.index,
+    }, id);
   }
 
-  // Avança os tiros pendentes `dtMs` e aplica dano em quem a trajetória alcançar.
-  advanceShots(dtMs) {
-    const survivors = [];
-    for (const shot of this.pendingShots) {
-      const age = Date.now() - shot.bornAt;
-      if (age > SHOT_MAX_LIFETIME_MS) continue;
-      shot.x += Math.cos(shot.angle) * shot.bulletSpeed * (dtMs / 1000);
-      shot.y += Math.sin(shot.angle) * shot.bulletSpeed * (dtMs / 1000);
-      const target = this.findHit(shot);
-      if (target) {
-        target.player.hp = Math.max(0, target.player.hp - SHOT_DAMAGE);
-        this.broadcast({ t: HIT, shotId: shot.shotId, targetId: target.id, damage: SHOT_DAMAGE, targetHp: target.player.hp });
-        continue; // consumido pelo acerto
-      }
-      survivors.push(shot);
+  hasAliveEnemy() {
+    for (const enemy of this.enemies.values()) if (enemy.alive) return true;
+    return false;
+  }
+
+  // Quem simula os inimigos é o host (um jogador); o servidor só retransmite. Host travado ou com lag congelaria os inimigos de todos, então
+  // o servidor mede o intervalo entre os `enemyStates` dele e passa o papel adiante. Só vale com alguém para assumir e inimigo vivo (sem
+  // inimigo o host não tem o que mandar).
+  watchEnemyHost(now) {
+    const watch = this.hostWatch;
+    if (watch.hostId !== this.enemyAuthorityId) Object.assign(watch, { hostId: this.enemyAuthorityId, lastStatesAt: now, stalled: false, lateAt: [] });
+    if (this.players.size < 2 || !this.hasAliveEnemy()) {
+      watch.lastStatesAt = now;
+      watch.stalled = false;
+      return;
     }
-    this.pendingShots = survivors;
+    const silent = now - watch.lastStatesAt;
+    if (silent > HOST_SILENT_MS) return this.replaceEnemyHost();
+    if (silent <= HOST_LATE_MS || watch.stalled) return;
+    watch.stalled = true;   // uma parada conta um atraso só, por mais que dure
+    watch.lateAt = watch.lateAt.filter((at) => now - at < HOST_LATE_WINDOW_MS);
+    watch.lateAt.push(now);
+    if (watch.lateAt.length >= HOST_MAX_LATE) this.replaceEnemyHost();
   }
 
-  findHit(shot) {
+  // Passa o papel de host a outro jogador (o de atividade mais recente; o servidor não mede latência). Os inimigos são recriados pelo novo
+  // host, como quando o antigo sai; o antigo continua na sala e recebe o `enemyAuthority` como todos.
+  replaceEnemyHost() {
+    const oldId = this.enemyAuthorityId;
+    let next = null;
     for (const [id, player] of this.players) {
-      if (id === shot.ownerId) continue;
-      const dx = player.x - shot.x;
-      const dy = player.y - shot.y;
-      if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) return { id, player };
+      if (id === oldId) continue;
+      if (next === null || player.lastActivityAt > this.players.get(next).lastActivityAt) next = id;
     }
-    return null;
+    if (next === null) return;
+    this.enemies.clear();
+    this.enemyAuthorityId = next;
+    this.broadcast({ t: ENEMY_AUTHORITY, id: next });
   }
 
   tick() {
     const now = Date.now();
+    this.watchEnemyHost(now);
     for (const player of this.players.values()) {
       if (player.closingForIdle || now - player.lastActivityAt < IDLE_TIMEOUT_MS) continue;
       player.closingForIdle = true;
@@ -261,7 +293,6 @@ export class Room {
       player.x += Math.cos(player.angle) * player.speed * dt;
       player.y += Math.sin(player.angle) * player.speed * dt;
     }
-    this.advanceShots(dtMs);
     const players = [...this.players.entries()].map(([id, player]) => ({
       id,
       position: player.position,
@@ -269,6 +300,7 @@ export class Room {
       altitude: player.altitude,
       angle: player.angle,
       speed: player.speed,
+      level: player.level,
       x: player.x,
       y: player.y,
     }));
