@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { authenticateGoogleToken, GoogleAuthError } from '../src/googleAuth.js';
 import { createHttpServer } from '../src/httpServer.js';
+import { verifySession } from '../src/session.js';
 
 test('requires a configured web OAuth client ID', async () => {
   const previousClientId = process.env.GOOGLE_CLIENT_ID;
@@ -83,9 +84,9 @@ test('POST /auth/google validates the token and returns the verified profile', a
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('access-control-allow-origin'), 'https://spaceshapes.example');
-  assert.deepEqual(await response.json(), {
-    user: { id: 'google-subject', email: 'pilot@example.com', name: 'Pilot', picture: null },
-  });
+  const { user, session } = await response.json();
+  assert.deepEqual(user, { id: 'google-subject', email: 'pilot@example.com', name: 'Pilot', picture: null });
+  assert.equal(verifySession(session), 'pilot@example.com');
 });
 
 test('POST /auth/google rejects malformed request bodies', async (context) => {

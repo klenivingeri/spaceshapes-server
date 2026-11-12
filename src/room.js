@@ -233,7 +233,6 @@ export class Room {
       targetAltitude: shot.targetAltitude,
       climb: shot.climb,
       range: shot.range,
-      airspace: shot.airspace,
       bullet: shot.bullet,
       index: shot.index,
     }, id);

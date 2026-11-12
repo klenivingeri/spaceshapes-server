@@ -21,6 +21,17 @@ no Render e envie o mesmo ID como `VITE_GOOGLE_WEB_CLIENT_ID` no build do jogo.
 O endpoint valida a assinatura, audiência, validade e e-mail verificado do
 token com o Google; não armazena tokens nem sincroniza progresso.
 
+## Banco de dados (MongoDB) e sessões
+
+O inventário dos jogadores (`POST/GET /inventory`) e o mercado global (`/market/*`) ficam no MongoDB (coleções `inventories`,
+`listings` e `earnings`). Variáveis de ambiente (modelo em `.env.example`; local vai em `.env`, ignorado pelo git; no Render, no
+painel do serviço):
+
+- `MONGODB_URI` e `MONGODB_DB`: sem a URI o servidor roda em memória em dev, e **recusa subir** com `NODE_ENV=production`.
+- `SESSION_SECRET`: assina as sessões que `POST /auth/google` devolve junto com o perfil. Conta Google manda
+  `Authorization: Bearer <sessão>`; visitante usa o uuid de `local:<uuid>` (mín. 16 caracteres) como segredo.
+- No Atlas, libere o IP do Render em Network Access.
+
 ## Protocolo
 
 Ver `src/protocol.js` — espelhado manualmente em

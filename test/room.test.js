@@ -72,7 +72,7 @@ test('transfere autoridade para o jogador ativo quando a sala ainda não tem ini
       radius: 1,
       hp: 3,
       maxHp: 3,
-      spot: { cell: 2, inside: false, airspace: -1, level: 1, type: 'chase' },
+      spot: { cell: 2, inside: false, level: 1, type: 'chase' },
     };
     room.handleEnemySpawn(activeAuthorityId, enemy);
     assert.equal(room.enemies.has(enemy.id), true);
@@ -158,7 +158,7 @@ test('mantém o dano do inimigo contra estados atrasados enviados pela autoridad
       radius: 1,
       hp: 10,
       maxHp: 10,
-      spot: { cell: 2, inside: false, airspace: -1, level: 1, type: 'chase' },
+      spot: { cell: 2, inside: false, level: 1, type: 'chase' },
     };
     room.handleEnemySpawn(hostId, enemy);
 
@@ -189,7 +189,7 @@ test('servidor decide os drops e limita a coleta ao jogador que deu o golpe fina
       radius: 1,
       hp: 1,
       maxHp: 1,
-      spot: { cell: 2, inside: false, airspace: -1, level: 1, type: 'chase' },
+      spot: { cell: 2, inside: false, level: 1, type: 'chase' },
       dropOptions: {
         parts: [{ part: 'engine', shipId: 'ship-1' }],
         chips: ['turbo'],
@@ -249,7 +249,7 @@ test('somente a autoridade cria inimigos, estados são retransmitidos e dano é 
       radius: 1,
       hp: 3,
       maxHp: 3,
-      spot: { cell: 2, inside: false, airspace: -1, level: 1, type: 'chase' },
+      spot: { cell: 2, inside: false, level: 1, type: 'chase' },
     };
     room.handleEnemySpawn(guestId, enemy);
     assert.equal(room.enemies.size, 0);
@@ -270,7 +270,6 @@ test('somente a autoridade cria inimigos, estados são retransmitidos e dano é 
       speed: 120,
       altitude: 0,
       targetAltitude: 12,
-      airspace: -1,
     };
     room.handleEnemyShot(guestId, enemyShot);
     assert.notEqual(guest.messages.at(-1).t, 'enemyShot');
@@ -300,7 +299,7 @@ test('o tiro só é repassado aos outros jogadores, com para onde a nave apontav
     const shooterId = room.join(first, { name: 'A', shipId: 'ship' });
     room.join(second, { name: 'B', shipId: 'ship' });
     const shot = {
-      shotId: 'a-1', position: [0, 0, 1], forward: [1, 0, 0], speed: 300, altitude: 20, targetAltitude: 60, climb: 12, range: 540, airspace: -1, bullet: 'single', index: 0, extra: 'ignorado',
+      shotId: 'a-1', position: [0, 0, 1], forward: [1, 0, 0], speed: 300, altitude: 20, targetAltitude: 60, climb: 12, range: 540, bullet: 'single', index: 0, extra: 'ignorado',
     };
     const before = first.messages.length;
     room.handleShot(shooterId, shot);

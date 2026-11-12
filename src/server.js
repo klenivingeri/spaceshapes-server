@@ -1,5 +1,9 @@
 import { WebSocketServer } from 'ws';
+import { connectDb } from './db.js';
 import { createHttpServer } from './httpServer.js';
+import { MemoryInventoryStore, MongoInventoryStore } from './inventory.js';
+import { MarketBoard } from './market.js';
+import { MongoMarketStore } from './marketStore.js';
 import {
   ACTIVITY, DROP_PICKUP, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, RENAME, SHOT,
   isValidDropPickup, isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidIdentityId, isValidJoin, isValidMove, isValidRename, isValidShot,
@@ -9,7 +13,17 @@ import { RoomRegistry } from './room.js';
 const PORT = process.env.PORT || 8787;
 const registry = new RoomRegistry();
 
-const httpServer = createHttpServer();
+// Mercado e inventário dos jogadores moram no MongoDB. Sem MONGODB_URI só funciona em memória (dev): em produção isso perderia tudo
+// a cada reinício, então lá o servidor nem sobe.
+const db = await connectDb();
+if (!db) {
+  if (process.env.NODE_ENV === 'production') throw new Error('MONGODB_URI não configurada: sem ela o inventário e o mercado não seriam salvos.');
+  console.warn('[quadrix-server] MONGODB_URI não configurada: mercado e inventário só em memória (somem ao reiniciar).');
+}
+const httpServer = createHttpServer({
+  market: new MarketBoard(db ? new MongoMarketStore(db) : undefined),
+  inventory: db ? new MongoInventoryStore(db) : new MemoryInventoryStore(),
+});
 
 const wss = new WebSocketServer({ server: httpServer });
 

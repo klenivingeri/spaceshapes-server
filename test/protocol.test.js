@@ -36,7 +36,7 @@ test('validates spawn, state and damage for shared enemies', () => {
     radius: 1,
     hp: 3,
     maxHp: 3,
-    spot: { cell: 2, inside: false, airspace: -1, level: 1, type: 'chase' },
+    spot: { cell: 2, inside: false, level: 1, type: 'chase' },
   };
 
   assert.equal(isValidEnemySpawn(enemy), true);
@@ -57,11 +57,11 @@ test('validates spawn, state and damage for shared enemies', () => {
   assert.equal(isValidDropPickup({ id: '' }), false);
   assert.equal(isValidEnemyShot({
     enemyId: enemy.id, origin: enemy.position, target: [0.4, 0.3, 0.8660254],
-    speed: 120, altitude: 0, targetAltitude: 10, airspace: -1,
+    speed: 120, altitude: 0, targetAltitude: 10,
   }), true);
   assert.equal(isValidEnemyShot({
     enemyId: enemy.id, origin: [0, 0], target: enemy.position,
-    speed: 120, altitude: 0, targetAltitude: 10, airspace: -1,
+    speed: 120, altitude: 0, targetAltitude: 10,
   }), false);
 });
 
@@ -76,14 +76,13 @@ test('join e move aceitam o nível do jogador (inteiro de 1 a 999)', () => {
 
 test('tiro do jogador: origem e direção 3D, voo e qual tiro desenhar', () => {
   const shot = {
-    shotId: 'a-1', position: [0, 0, 1], forward: [1, 0, 0], speed: 300, altitude: 20, targetAltitude: 60, climb: 12, range: 540, airspace: -1, bullet: 'single', index: 0,
+    shotId: 'a-1', position: [0, 0, 1], forward: [1, 0, 0], speed: 300, altitude: 20, targetAltitude: 60, climb: 12, range: 540, bullet: 'single', index: 0,
   };
   assert.equal(isValidShot(shot), true);
   assert.equal(isValidShot({ ...shot, position: [0, 1] }), false);
   assert.equal(isValidShot({ ...shot, forward: [0, 0, Number.NaN] }), false);
   assert.equal(isValidShot({ ...shot, speed: 0 }), false);
   assert.equal(isValidShot({ ...shot, range: 1e9 }), false);
-  assert.equal(isValidShot({ ...shot, airspace: 1.5 }), false);
   assert.equal(isValidShot({ ...shot, bullet: '' }), false);
   assert.equal(isValidShot({ ...shot, index: 99 }), false);
   // o formato antigo (ângulo e origem 2D do mapa de cada cliente) não vale mais

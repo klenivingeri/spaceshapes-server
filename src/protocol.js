@@ -90,8 +90,8 @@ export function isValidRename(payload) {
 }
 
 // Tiro do jogador: só para onde a nave apontava. `position` (ponto unitário da esfera, onde o tiro nasce) e `forward` (direção tangente) vêm no
-// referencial comum do planeta, e o resto descreve o voo (velocidade em px/s, altura de saída e de chegada, subida em px/s, alcance em px,
-// espaço aéreo). `bullet` e `index` dizem qual tiro do catálogo desenhar. Quem recebe calcula a trajetória; o servidor não segue o projétil.
+// referencial comum do planeta, e o resto descreve o voo (velocidade em px/s, altura de saída e de chegada, subida em px/s, alcance em px).
+// `bullet` e `index` dizem qual tiro do catálogo desenhar. Quem recebe calcula a trajetória; o servidor não segue o projétil.
 export function isValidShot(payload) {
   return payload
     && typeof payload.shotId === 'string' && payload.shotId.length > 0 && payload.shotId.length <= 80
@@ -101,7 +101,6 @@ export function isValidShot(payload) {
     && isFiniteNumber(payload.targetAltitude) && payload.targetAltitude >= 0
     && isFiniteNumber(payload.climb)
     && isFiniteNumber(payload.range) && payload.range > 0 && payload.range <= 20000
-    && Number.isInteger(payload.airspace) && payload.airspace >= -1 && payload.airspace <= 8
     && typeof payload.bullet === 'string' && payload.bullet.length > 0 && payload.bullet.length <= 40
     && Number.isInteger(payload.index) && payload.index >= 0 && payload.index < 16;
 }
@@ -112,7 +111,6 @@ export function isValidEnemySpawn(payload) {
     && isFiniteNumber(payload.maxHp) && payload.maxHp >= payload.hp
     && payload.spot && Number.isInteger(payload.spot.cell) && payload.spot.cell >= 0
     && typeof payload.spot.inside === 'boolean'
-    && Number.isInteger(payload.spot.airspace)
     && Number.isFinite(payload.spot.level) && payload.spot.level > 0
     && typeof payload.spot.type === 'string'
     && (!('dropOptions' in payload) || isValidDropOptions(payload.dropOptions));
@@ -137,6 +135,5 @@ export function isValidEnemyShot(payload) {
     && isVector3(payload.origin) && isVector3(payload.target)
     && isFiniteNumber(payload.speed) && payload.speed > 0 && payload.speed <= 10000
     && isFiniteNumber(payload.altitude) && payload.altitude >= 0
-    && isFiniteNumber(payload.targetAltitude) && payload.targetAltitude >= 0
-    && Number.isInteger(payload.airspace) && payload.airspace >= -1 && payload.airspace <= 8;
+    && isFiniteNumber(payload.targetAltitude) && payload.targetAltitude >= 0;
 }
