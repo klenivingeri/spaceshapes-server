@@ -8,5 +8,11 @@ export async function connectDb({ uri = process.env.MONGODB_URI?.trim(), name = 
   await client.connect();
   const db = client.db(name);
   await db.collection('listings').createIndex({ sellerId: 1 });
+  // Runs e drops pendentes expiram sozinhos (3 dias); a run vale 12 h (ver runs.js), então nada útil se perde antes.
+  const threeDays = 3 * 24 * 60 * 60;
+  await db.collection('runs').createIndex({ createdAt: 1 }, { expireAfterSeconds: threeDays });
+  await db.collection('drops').createIndex({ createdAt: 1 }, { expireAfterSeconds: threeDays });
+  await db.collection('drops').createIndex({ runId: 1 });
+  await db.collection('ranking').createIndex({ power: -1, createdAt: 1 });
   return db;
 }

@@ -56,3 +56,18 @@ test('valida preço, tipo e limite de anúncios', async () => {
   for (let i = 0; i < MAX_LISTINGS_PER_SELLER; i++) await board.create(A, 'Ana', item());
   await assert.rejects(board.create(A, 'Ana', item()), /anúncios ativos/);
 });
+
+test('a versão muda a cada alteração do mercado e não muda numa leitura', async () => {
+  const board = new MarketBoard();
+  const seen = [board.version()];
+  const { id } = await board.create(A, 'Ana', item());
+  seen.push(board.version());
+  await board.listings();
+  await board.pending(A);
+  assert.equal(board.version(), seen[1]);
+  await board.buy(B, id);
+  seen.push(board.version());
+  await board.claim(A);
+  seen.push(board.version());
+  assert.equal(new Set(seen).size, seen.length);
+});

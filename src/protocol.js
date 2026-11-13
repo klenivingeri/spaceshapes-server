@@ -13,6 +13,13 @@ export const ENEMY_STATES = 'enemyStates';
 export const ENEMY_DAMAGE = 'enemyDamage';
 export const ENEMY_SHOT = 'enemyShot';
 export const DROP_PICKUP = 'dropPickup';
+// PvP e duelos (ver duels.js): ligar/desligar o PvP, convidar para duelo (o primeiro tiro no outro), responder ao convite, dano em duelo e
+// a derrota de quem zerou a vida (cada cliente só declara a própria).
+export const PVP_SET = 'pvpSet';
+export const DUEL_REQUEST = 'duelRequest';
+export const DUEL_REPLY = 'duelReply';
+export const PVP_HIT = 'pvpHit';
+export const DUEL_DEFEAT = 'duelDefeat';
 
 // Servidor -> cliente
 export const WELCOME = 'welcome';
@@ -24,6 +31,12 @@ export const REMOTE_SHOT = 'shot';
 export const ENEMY_AUTHORITY = 'enemyAuthority';
 export const ENEMY_DROP = 'enemyDrop';
 export const DROP_COLLECTED = 'dropCollected';
+export const PVP_STATE = 'pvpState';            // { id, on }: alguém ligou/desligou o PvP (também corrige quem tentou desligar sem poder)
+export const DUEL_INVITE = 'duelInvite';        // { from, name }: para quem foi chamado
+export const DUEL_INVITE_END = 'duelInviteEnd'; // { from, target, reason }: o convite acabou (recusado, expirou ou cancelado)
+export const DUEL_START = 'duelStart';          // { a, b }: os dois entram em duelo
+export const DUEL_END = 'duelEnd';              // { winnerId, loserId, reason, honorWin, honorLoss }
+export const PLAYER_DAMAGE = 'playerDamage';    // { from, amount }: dano de duelo que a vítima aplica a si mesma
 
 // A cada quantos ticks do servidor um jogador recebe x/y de novo (resync contra
 // o drift do dead-reckoning do cliente). 10 ticks a 20 Hz = 500 ms.
@@ -124,6 +137,22 @@ export function isValidEnemyStates(payload) {
 export function isValidEnemyDamage(payload) {
   return payload && typeof payload.id === 'string' && payload.id.length > 0 && payload.id.length <= 120
     && isFiniteNumber(payload.damage) && payload.damage > 0 && payload.damage <= 10000;
+}
+
+export function isValidPvpSet(payload) {
+  return payload && typeof payload.on === 'boolean';
+}
+
+export function isValidDuelTarget(payload) {
+  return payload && typeof payload.target === 'string' && payload.target.length > 0 && payload.target.length <= 80;
+}
+
+export function isValidDuelReply(payload) {
+  return payload && typeof payload.from === 'string' && payload.from.length > 0 && payload.from.length <= 80 && typeof payload.accept === 'boolean';
+}
+
+export function isValidPvpHit(payload) {
+  return isValidDuelTarget(payload) && isFiniteNumber(payload.damage) && payload.damage > 0 && payload.damage <= 5000;
 }
 
 export function isValidDropPickup(payload) {

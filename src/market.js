@@ -41,9 +41,23 @@ function assertValidPrice({ coins, ore }) {
 
 export class MarketBoard {
   #store;
+  // Muda a cada alteração do mercado (anúncio criado, cancelado, comprado ou saldo coletado). Os clientes guardam a lista e só
+  // pedem de novo ao banco quando esse número muda (ver version()). Começa no relógio para que um reinício do servidor invalide
+  // as listas guardadas. Vale para uma instância só: com várias, o contador teria de morar no banco.
+  #version = Date.now();
 
   constructor(store = new MemoryMarketStore()) {
     this.#store = store;
+  }
+
+  // Responde sem tocar no banco: é a pergunta barata "o mercado mudou?".
+  version() {
+    return this.#version;
+  }
+
+  #changed(result) {
+    this.#version += 1;
+    return result;
   }
 
   listings() {
@@ -63,7 +77,7 @@ export class MarketBoard {
     if ((await this.#store.countBySeller(sellerId)) >= MAX_LISTINGS_PER_SELLER) {
       throw new MarketError(`Você já tem ${MAX_LISTINGS_PER_SELLER} anúncios ativos.`);
     }
-    return this.#store.insert({ sellerId, sellerName: sellerName.trim(), kind: item.kind, key: item.key, coins: item.coins, ore: item.ore });
+    return this.#changed(await this.#store.insert({ sellerId, sellerName: sellerName.trim(), kind: item.kind, key: item.key, coins: item.coins, ore: item.ore }));
   }
 
   // Tira o anúncio (do próprio vendedor) e devolve o item para ele.
@@ -72,7 +86,7 @@ export class MarketBoard {
     assertValidListingId(id);
     const listing = await this.#store.take(id, { sellerId });
     if (!listing) throw new MarketError('Anúncio não encontrado.', 404);
-    return listing;
+    return this.#changed(listing);
   }
 
   // Tira o anúncio e credita o preço ao vendedor. Quem chama entrega o item ao comprador.
@@ -85,12 +99,12 @@ export class MarketBoard {
       throw new MarketError(own ? 'Você não pode comprar o próprio anúncio.' : 'Esse anúncio não está mais disponível.', own ? 400 : 404);
     }
     await this.#store.credit(listing.sellerId, listing);
-    return listing;
+    return this.#changed(listing);
   }
 
   // Entrega ao vendedor tudo o que as vendas renderam e zera o saldo.
-  claim(sellerId) {
+  async claim(sellerId) {
     assertValidIdentity(sellerId);
-    return this.#store.claim(sellerId);
+    return this.#changed(await this.#store.claim(sellerId));
   }
 }

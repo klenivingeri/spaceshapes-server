@@ -1,0 +1,313 @@
+{
+  "families": [
+    "asa",
+    "ascua",
+    "aurora",
+    "ave-de-fogo-mini",
+    "besouro",
+    "brasa",
+    "canhoneira",
+    "casulo",
+    "cauda-de-fogo",
+    "centelha",
+    "colosso",
+    "corvo-cinza-2",
+    "corvo-cinza-rapina",
+    "crista",
+    "cruz-de-gelo",
+    "efemera",
+    "falcao-vermelho",
+    "ferrao",
+    "foice",
+    "helicoptero",
+    "manta",
+    "nimbus",
+    "noturno",
+    "pioneiro",
+    "rotor",
+    "rubi",
+    "sentinela",
+    "siri",
+    "tridente",
+    "trovao",
+    "ventoinha",
+    "vulto"
+  ],
+  "enemies": [
+    "orb_plasma",
+    "hydra_multi",
+    "crescent_phantom",
+    "twin_orbs",
+    "hexa_hive",
+    "rhombus_stalker",
+    "hostile_diamond",
+    "cross_cannon",
+    "triangle_watcher",
+    "polvo",
+    "planta",
+    "golem",
+    "ametista",
+    "tripod_marciano",
+    "predador",
+    "cthulhu",
+    "escorpiao_cauda",
+    "verme",
+    "aranha_alta",
+    "golem_miudo",
+    "golem_pequeno",
+    "golem_magro",
+    "golem_gordo",
+    "quad_cyber",
+    "rect_titan",
+    "octo_shell",
+    "octo_spiked",
+    "ram_prism",
+    "facehugger",
+    "xenomorfo",
+    "inseto",
+    "blob",
+    "verme_areia",
+    "thing",
+    "slimer",
+    "aranha",
+    "escorpiao_pinca",
+    "morcego",
+    "tri_striker",
+    "hybrid_chimera",
+    "star_blade",
+    "penta_predator"
+  ],
+  "rarities": [
+    {
+      "id": "common",
+      "weight": 60
+    },
+    {
+      "id": "uncommon",
+      "weight": 20
+    },
+    {
+      "id": "rare",
+      "weight": 10
+    },
+    {
+      "id": "heroic",
+      "weight": 5
+    },
+    {
+      "id": "legendary",
+      "weight": 3
+    },
+    {
+      "id": "mythic",
+      "weight": 1.5
+    },
+    {
+      "id": "immortal",
+      "weight": 0.5
+    }
+  ],
+  "fragmentChance": {
+    "enemy": 0.06,
+    "block": 0.04
+  },
+  "captureChance": 0.75,
+  "focusChance": 0.6,
+  "defaultShip": "falcao-vermelho",
+  "starterShips": [
+    "falcao-vermelho",
+    "aurora",
+    "nimbus"
+  ],
+  "slots": 4,
+  "fuseCount": 4,
+  "researchFragments": 5,
+  "evolutionFragments": {
+    "base": 10,
+    "step": 5
+  },
+  "familyShips": {
+    "asa": [
+      "asa",
+      "asa-gemea",
+      "asa-delta",
+      "asa-rapina",
+      "grande-asa"
+    ],
+    "ascua": [
+      "ascua",
+      "ardente",
+      "vulcano",
+      "obsidiana"
+    ],
+    "aurora": [
+      "aurora"
+    ],
+    "ave-de-fogo-mini": [
+      "ave-de-fogo-mini",
+      "garuda-mini",
+      "fenix-mini"
+    ],
+    "besouro": [
+      "besouro",
+      "escaravelho",
+      "rinoceronte",
+      "hercules",
+      "titan-besouro"
+    ],
+    "brasa": [
+      "brasa",
+      "fagulha",
+      "chama",
+      "labareda",
+      "fenix"
+    ],
+    "canhoneira": [
+      "canhoneira",
+      "corveta",
+      "fragata",
+      "destroier",
+      "encouracado"
+    ],
+    "casulo": [
+      "casulo",
+      "orbe",
+      "esfera",
+      "colosso-orbital",
+      "eclipse"
+    ],
+    "cauda-de-fogo": [
+      "cauda-de-fogo"
+    ],
+    "centelha": [
+      "centelha",
+      "raio",
+      "corisco",
+      "tormenta",
+      "tempestade"
+    ],
+    "colosso": [
+      "colosso",
+      "colosso-tita",
+      "colosso-bastiao",
+      "colosso-fortaleza",
+      "colosso-imperador"
+    ],
+    "corvo-cinza-2": [
+      "corvo-cinza-2"
+    ],
+    "corvo-cinza-rapina": [
+      "corvo-cinza-rapina"
+    ],
+    "crista": [
+      "crista",
+      "cimeira",
+      "penacho",
+      "coroa",
+      "coroa-imperial"
+    ],
+    "cruz-de-gelo": [
+      "cruz-de-gelo"
+    ],
+    "efemera": [
+      "efemera",
+      "libelula-azul",
+      "libelula-real",
+      "libelula-imperial",
+      "libelula-suprema"
+    ],
+    "falcao-vermelho": [
+      "falcao-vermelho"
+    ],
+    "ferrao": [
+      "ferrao",
+      "aguilhao",
+      "escorpiao",
+      "escorpiao-real",
+      "escorpiao-rei"
+    ],
+    "foice": [
+      "foice",
+      "gadanha",
+      "alfanje",
+      "cimitarra",
+      "foice-imperial"
+    ],
+    "helicoptero": [
+      "helicoptero",
+      "helicoptero-2",
+      "helicoptero-o"
+    ],
+    "manta": [
+      "manta",
+      "arraia",
+      "mantarraia",
+      "raia-abissal",
+      "manta-imperial"
+    ],
+    "nimbus": [
+      "nimbus"
+    ],
+    "noturno": [
+      "noturno",
+      "vigilante",
+      "cavaleiro",
+      "cavaleiro-das-trevas",
+      "cavaleiro-negro"
+    ],
+    "pioneiro": [
+      "pioneiro",
+      "biplano",
+      "bimotor",
+      "quadrimotor",
+      "fortaleza"
+    ],
+    "rotor": [
+      "rotor",
+      "patrulheiro",
+      "guardiao",
+      "dominador",
+      "tita"
+    ],
+    "rubi": [
+      "rubi",
+      "escarlate",
+      "carmesim",
+      "rubro",
+      "ceifador"
+    ],
+    "sentinela": [
+      "sentinela",
+      "lanceiro",
+      "estilete",
+      "guilhotina",
+      "valquiria"
+    ],
+    "siri": [
+      "siri",
+      "caranguejo",
+      "guaiamum",
+      "aratu",
+      "tamarutaca"
+    ],
+    "tridente": [
+      "tridente"
+    ],
+    "trovao": [
+      "trovao"
+    ],
+    "ventoinha": [
+      "ventoinha",
+      "brisa",
+      "ciclone",
+      "furacao",
+      "tufao"
+    ],
+    "vulto": [
+      "vulto",
+      "umbra",
+      "sombra",
+      "lamina"
+    ]
+  }
+}

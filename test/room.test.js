@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { FAMILIES } from '../src/loot.js';
 import { Room, RoomRegistry } from '../src/room.js';
 
 function socket() {
@@ -148,7 +149,7 @@ test('mantém o dano do inimigo contra estados atrasados enviados pela autoridad
   const host = socket();
   const guest = socket();
   try {
-    const guestId = room.join(guest, { name: 'Guest', shipId: 'ship' });
+    const guestId = room.join(guest, { name: 'Guest', shipId: 'ship', identityId: 'local:gggggggggggggggggggg' });
     const hostId = room.join(host, { name: 'Host', shipId: 'ship' });
     const enemy = {
       id: 'host:1',
@@ -173,13 +174,14 @@ test('mantém o dano do inimigo contra estados atrasados enviados pela autoridad
 });
 
 test('servidor decide os drops e limita a coleta ao jogador que deu o golpe final', () => {
-  const room = new Room('enemy-drop-test');
+  const credited = [];
+  const room = new Room('enemy-drop-test', { onLoot: async (identityId, item) => credited.push([identityId, item]) });
   const host = socket();
   const guest = socket();
   const originalRandom = Math.random;
   Math.random = () => 0;
   try {
-    const guestId = room.join(guest, { name: 'Guest', shipId: 'ship' });
+    const guestId = room.join(guest, { name: 'Guest', shipId: 'ship', identityId: 'local:gggggggggggggggggggg' });
     const hostId = room.join(host, { name: 'Host', shipId: 'ship' });
     const enemy = {
       id: 'host:1',
@@ -192,23 +194,23 @@ test('servidor decide os drops e limita a coleta ao jogador que deu o golpe fina
       spot: { cell: 2, inside: false, level: 1, type: 'chase' },
       dropOptions: {
         parts: [{ part: 'engine', shipId: 'ship-1' }],
-        chips: ['turbo'],
+        chips: [],
       },
     };
     room.handleEnemySpawn(hostId, enemy);
     room.handleEnemyDamage(guestId, { id: enemy.id, damage: 1 });
 
     const drops = guest.messages.filter((message) => message.t === 'enemyDrop').map((message) => message.drop);
-    assert.equal(drops.length, 2);
+    // A família vem da tabela do servidor (a primeira, com o sorteio zerado), nunca da lista que o cliente mandou.
+    assert.equal(drops.length, 1);
     assert.equal(drops[0].ownerId, guestId);
-    assert.deepEqual(drops[0].partDrop, { part: 'engine', shipId: 'ship-1' });
-    assert.equal(drops[1].chipDrop, 'turbo');
+    assert.deepEqual(drops[0].partDrop, { part: 'center', shipId: FAMILIES[0] });
     assert.deepEqual(drops[0].position, enemy.position);
     const latePlayer = socket();
     room.join(latePlayer, { name: 'Late', shipId: 'ship' });
     assert.deepEqual(latePlayer.messages[0].drops.map(({ id }) => id), drops.map(({ id }) => id));
 
-    const [partDrop, chipDrop] = drops;
+    const [partDrop] = drops;
     room.handleDropPickup(hostId, partDrop.id);
     assert.equal(room.drops.has(partDrop.id), true);
     room.handleDropPickup(guestId, partDrop.id);
@@ -217,12 +219,8 @@ test('servidor decide os drops e limita a coleta ao jogador que deu o golpe fina
       t: 'dropCollected', id: partDrop.id, pickerId: guestId,
     });
 
-    room.drops.get(chipDrop.id).ownerUntil = Date.now() - 1;
-    room.handleDropPickup(hostId, chipDrop.id);
-    assert.equal(room.drops.has(chipDrop.id), false);
-    assert.deepEqual(guest.messages.at(-1), {
-      t: 'dropCollected', id: chipDrop.id, pickerId: hostId,
-    });
+    // Quem pegou ganha o crédito no inventário do servidor.
+    assert.deepEqual(credited, [['local:gggggggggggggggggggg', { kind: 'fragment', family: FAMILIES[0] }]]);
   } finally {
     Math.random = originalRandom;
     room.dispose();

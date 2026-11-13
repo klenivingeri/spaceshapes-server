@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { rollFamily } from './loot.js';
+import data from './gameData.json' with { type: 'json' };
+import { Duels } from './duels.js';
 import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
@@ -11,8 +14,6 @@ const HOST_MAX_LATE = 3;
 const HOST_LATE_WINDOW_MS = 10_000;
 const START_HP = 100;
 const MAX_ROOM_ENEMIES = 512;
-const PART_DROP_CHANCE = 0.06;
-const CHIP_DROP_CHANCE = 0.05;
 const DROP_OWNER_WINDOW_MS = 10_000;
 const SESSION_REPLACED_CODE = 4002;
 const SESSION_REPLACED_REASON = 'session replaced';
@@ -23,13 +24,16 @@ function sendJson(ws, message) {
 }
 
 export class Room {
-  constructor(id) {
+  // `onLoot(identityId, item)`: o servidor credita ao inventário o fragmento que o jogador pegou (ver server.js).
+  constructor(id, { onLoot = null } = {}) {
     this.id = id;
+    this.onLoot = onLoot;
     this.players = new Map(); // id -> { ws, name, shipId, position, forward, altitude, x, y, angle, speed, hp }
     this.enemyAuthorityId = null;
     this.hostWatch = { hostId: null, lastStatesAt: 0, stalled: false, lateAt: [] };
     this.enemies = new Map();
     this.drops = new Map();
+    this.duels = new Duels(this);
     this.tickCount = 0;
     this.interval = setInterval(() => this.tick(), TICK_MS);
   }
@@ -57,7 +61,13 @@ export class Room {
       speed: player.speed,
       level: player.level,
       hp: player.hp,
+      pvp: this.duels.isOn(id),
     };
+  }
+
+  send(id, message) {
+    const player = this.players.get(id);
+    if (player) sendJson(player.ws, message);
   }
 
   join(ws, {
@@ -89,6 +99,7 @@ export class Room {
 
   leave(id) {
     if (!this.players.has(id)) return;
+    this.duels.leave(id);
     this.players.delete(id);
     this.broadcast({ t: PLAYER_LEAVE, id });
     if (this.enemyAuthorityId === id) {
@@ -138,16 +149,9 @@ export class Room {
   }
 
   createEnemyDrops(enemy, ownerId) {
-    const options = enemy.dropOptions;
-    if (!options) return;
-    if (options.parts.length && Math.random() < PART_DROP_CHANCE) {
-      const { part, shipId } = options.parts[Math.floor(Math.random() * options.parts.length)];
-      this.createDrop(enemy, ownerId, { partDrop: { part, shipId } });
-    }
-    if (options.chips.length && Math.random() < CHIP_DROP_CHANCE) {
-      const chipDrop = options.chips[Math.floor(Math.random() * options.chips.length)];
-      this.createDrop(enemy, ownerId, { chipDrop });
-    }
+    // A família do fragmento vem da tabela do servidor (loot.js), nunca da lista que o cliente mandou em `dropOptions`.
+    if (!enemy.dropOptions || Math.random() >= data.fragmentChance.enemy) return;
+    this.createDrop(enemy, ownerId, { partDrop: { part: 'center', shipId: rollFamily() } });
   }
 
   createDrop(enemy, ownerId, item) {
@@ -166,7 +170,7 @@ export class Room {
   publicDrop(drop) {
     return {
       id: drop.id,
-      ...(drop.partDrop ? { partDrop: drop.partDrop } : { chipDrop: drop.chipDrop }),
+      partDrop: drop.partDrop,
       position: drop.position,
       altitude: drop.altitude,
       ownerId: drop.ownerId,
@@ -178,7 +182,15 @@ export class Room {
     const drop = this.drops.get(dropId);
     if (!drop || (playerId !== drop.ownerId && Date.now() < drop.ownerUntil)) return;
     this.drops.delete(dropId);
+    this.creditPickup(playerId, drop);
     this.broadcast({ t: DROP_COLLECTED, id: dropId, pickerId: playerId });
+  }
+
+  // Quem pegou o fragmento ganha o crédito no inventário do servidor; sem identidade (conexão sem conta nem visitante) não há onde creditar.
+  creditPickup(playerId, drop) {
+    const identityId = this.players.get(playerId)?.identityId;
+    if (!identityId || !this.onLoot) return;
+    Promise.resolve(this.onLoot(identityId, { kind: 'fragment', family: drop.partDrop.shipId })).catch((error) => console.error('[quadrix-server] falha ao creditar drop da sala:', error));
   }
 
   handleEnemyShot(id, shot) {
@@ -281,6 +293,7 @@ export class Room {
   tick() {
     const now = Date.now();
     this.watchEnemyHost(now);
+    this.duels.tick(now);
     for (const player of this.players.values()) {
       if (player.closingForIdle || now - player.lastActivityAt < IDLE_TIMEOUT_MS) continue;
       player.closingForIdle = true;
@@ -315,15 +328,29 @@ export class Room {
   }
 }
 
+// Vagas por sala: passou disso, o jogador cai numa cópia nova do mesmo mapa (`mapa#2`), como os servidores do Roblox.
+export const MAX_ROOM_PLAYERS = Number(process.env.MAX_ROOM_PLAYERS) || 20;
+
 export class RoomRegistry {
-  constructor() {
+  constructor(roomOptions = {}, { maxPlayers = MAX_ROOM_PLAYERS } = {}) {
+    this.roomOptions = roomOptions;
+    this.maxPlayers = maxPlayers;
     this.rooms = new Map();
+  }
+
+  // A sala do mapa `mapId` com vaga: a primeira cópia (`mapa#1`, `mapa#2`...) que não está cheia; se todas estão, abre a próxima. Cópias
+  // vazias são apagadas (disposeIfEmpty), então o número mais baixo livre é sempre reaproveitado.
+  assign(mapId) {
+    for (let copy = 1; ; copy++) {
+      const room = this.get(`${mapId}#${copy}`);
+      if (room.players.size < this.maxPlayers) return room;
+    }
   }
 
   get(roomId) {
     let room = this.rooms.get(roomId);
     if (!room) {
-      room = new Room(roomId);
+      room = new Room(roomId, this.roomOptions);
       this.rooms.set(roomId, room);
     }
     return room;
