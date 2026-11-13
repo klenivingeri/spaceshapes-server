@@ -60,7 +60,7 @@ function isValidEnemyState(enemy) {
   return enemy && typeof enemy.id === 'string' && enemy.id.length > 0 && enemy.id.length <= 120
     && isVector3(enemy.position)
     && isFiniteNumber(enemy.altitude) && enemy.altitude >= 0
-    && isFiniteNumber(enemy.radius) && enemy.radius > 0
+    && isFiniteNumber(enemy.z) && enemy.z >= 0
     && isFiniteNumber(enemy.hp) && enemy.hp > 0;
 }
 
@@ -105,8 +105,8 @@ export function isValidRename(payload) {
     && payload.name.trim().length > 0 && payload.name.trim().length <= 24;
 }
 
-// Tiro do jogador: só para onde a nave apontava. `position` (ponto unitário da esfera, onde o tiro nasce) e `forward` (direção tangente) vêm no
-// referencial comum do planeta, e o resto descreve o voo (velocidade em px/s, altura de saída e de chegada, subida em px/s, alcance em px).
+// Tiro do jogador: só para onde a nave apontava. `position` (onde o tiro nasce, [x, y, 0] em px da placa) e `forward` (direção, [cos, sen, 0]) vêm no
+// referencial comum da placa, e o resto descreve o voo (velocidade em px/s, altura de saída e de chegada, subida em px/s, alcance em px).
 // `bullet` e `index` dizem qual tiro do catálogo desenhar. Quem recebe calcula a trajetória; o servidor não segue o projétil.
 export function isValidShot(payload) {
   return payload
@@ -121,7 +121,7 @@ export function isValidShot(payload) {
     && Number.isInteger(payload.index) && payload.index >= 0 && payload.index < 16;
 }
 
-// Uso de uma habilidade: `skill` (id do catálogo), `position`/`forward` (ponto da esfera e direção tangente onde ela age, como no tiro),
+// Uso de uma habilidade: `skill` (id do catálogo), `position`/`forward` (ponto da placa e direção onde ela age, como no tiro),
 // `altitude` de quem usou e `value` (o que ela vale no ponto atual). Quem recebe só desenha; o dano é de quem usou (ver duels.js).
 export function isValidSkill(payload) {
   return payload

@@ -33,7 +33,7 @@ test('validates spawn, state and damage for shared enemies', () => {
     skin: 'orb_plasma',
     position: [0.3, 0.4, 0.8660254],
     altitude: 0,
-    radius: 1,
+    z: 1,
     hp: 3,
     maxHp: 3,
     spot: { cell: 2, inside: false, level: 1, type: 'chase' },

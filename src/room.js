@@ -128,7 +128,7 @@ export class Room {
         position: state.position,
         forward: state.forward,
         altitude: state.altitude,
-        radius: state.radius,
+        z: state.z,
         hp: Math.min(enemy.hp, state.hp),
       });
       accepted.push({ ...state, hp: enemy.hp });

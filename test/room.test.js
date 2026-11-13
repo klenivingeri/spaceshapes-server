@@ -70,7 +70,7 @@ test('transfere autoridade para o jogador ativo quando a sala ainda não tem ini
       skin: 'orb_plasma',
       position: [0.3, 0.4, 0.8660254],
       altitude: 0,
-      radius: 1,
+      z: 1,
       hp: 3,
       maxHp: 3,
       spot: { cell: 2, inside: false, level: 1, type: 'chase' },
@@ -156,7 +156,7 @@ test('mantém o dano do inimigo contra estados atrasados enviados pela autoridad
       skin: 'orb_plasma',
       position: [0.3, 0.4, 0.8660254],
       altitude: 0,
-      radius: 1,
+      z: 1,
       hp: 10,
       maxHp: 10,
       spot: { cell: 2, inside: false, level: 1, type: 'chase' },
@@ -188,7 +188,7 @@ test('servidor decide os drops e limita a coleta ao jogador que deu o golpe fina
       skin: 'orb_plasma',
       position: [0.3, 0.4, 0.8660254],
       altitude: 0,
-      radius: 1,
+      z: 1,
       hp: 1,
       maxHp: 1,
       spot: { cell: 2, inside: false, level: 1, type: 'chase' },
@@ -244,7 +244,7 @@ test('somente a autoridade cria inimigos, estados são retransmitidos e dano é 
       skin: 'orb_plasma',
       position: [0.3, 0.4, 0.8660254],
       altitude: 0,
-      radius: 1,
+      z: 1,
       hp: 3,
       maxHp: 3,
       spot: { cell: 2, inside: false, level: 1, type: 'chase' },
@@ -339,7 +339,7 @@ function roomWithHost(clock) {
   const hostId = room.enemyAuthorityId;
   const guestId = hostId === firstId ? secondId : firstId;
   room.handleEnemySpawn(hostId, { id: 'e1', spot: {}, hp: 3 });
-  const sendStates = () => room.handleEnemyStates(hostId, [{ id: 'e1', position: [0, 0, 1], forward: [1, 0, 0], altitude: 0, radius: 1, hp: 3 }]);
+  const sendStates = () => room.handleEnemyStates(hostId, [{ id: 'e1', position: [0, 0, 1], forward: [1, 0, 0], altitude: 0, z: 1, hp: 3 }]);
   sendStates();
   room.tick();
   return { room, hostId, guestId, guests: { [firstId]: host, [secondId]: guest }, sendStates, clock };
