@@ -9,8 +9,8 @@ import { RunLedger } from './runs.js';
 import { MongoRunStore } from './runStore.js';
 import { MongoMarketStore } from './marketStore.js';
 import {
-  ACTIVITY, DROP_PICKUP, DUEL_DEFEAT, DUEL_REPLY, DUEL_REQUEST, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, PVP_HIT, PVP_SET, RENAME, SHOT,
-  isValidDropPickup, isValidDuelReply, isValidDuelTarget, isValidPvpHit, isValidPvpSet, isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidIdentityId, isValidJoin, isValidMove, isValidRename, isValidShot,
+  ACTIVITY, DROP_PICKUP, DUEL_DEFEAT, DUEL_REPLY, DUEL_REQUEST, ENEMY_DAMAGE, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, JOIN, MOVE, PVP_HIT, PVP_SET, RENAME, SHOT, SKILL,
+  isValidDropPickup, isValidDuelReply, isValidDuelTarget, isValidPvpHit, isValidPvpSet, isValidEnemyDamage, isValidEnemyShot, isValidEnemySpawn, isValidEnemyStates, isValidIdentityId, isValidJoin, isValidMove, isValidRename, isValidShot, isValidSkill,
 } from './protocol.js';
 import { RoomRegistry } from './room.js';
 
@@ -80,6 +80,8 @@ wss.on('connection', (ws) => {
       });
     } else if (message.t === SHOT && isValidShot(message)) {
       room.handleShot(playerId, message);
+    } else if (message.t === SKILL && isValidSkill(message)) {
+      room.handleSkill(playerId, message);
     } else if (message.t === ENEMY_SPAWN && isValidEnemySpawn(message.enemy)) {
       room.handleEnemySpawn(playerId, message.enemy);
     } else if (message.t === ENEMY_STATES && isValidEnemyStates(message)) {

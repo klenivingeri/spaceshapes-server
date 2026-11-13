@@ -28,6 +28,9 @@ export const PLAYER_LEAVE = 'playerLeave';
 export const PLAYER_RENAME = 'playerRename';
 export const TICK = 'tick';
 export const REMOTE_SHOT = 'shot';
+// Habilidade usada por um jogador (só visual para os outros, ver isValidSkill): o servidor repassa com o id de quem usou.
+export const SKILL = 'skill';
+export const REMOTE_SKILL = 'skill';
 export const ENEMY_AUTHORITY = 'enemyAuthority';
 export const ENEMY_DROP = 'enemyDrop';
 export const DROP_COLLECTED = 'dropCollected';
@@ -116,6 +119,16 @@ export function isValidShot(payload) {
     && isFiniteNumber(payload.range) && payload.range > 0 && payload.range <= 20000
     && typeof payload.bullet === 'string' && payload.bullet.length > 0 && payload.bullet.length <= 40
     && Number.isInteger(payload.index) && payload.index >= 0 && payload.index < 16;
+}
+
+// Uso de uma habilidade: `skill` (id do catálogo), `position`/`forward` (ponto da esfera e direção tangente onde ela age, como no tiro),
+// `altitude` de quem usou e `value` (o que ela vale no ponto atual). Quem recebe só desenha; o dano é de quem usou (ver duels.js).
+export function isValidSkill(payload) {
+  return payload
+    && typeof payload.skill === 'string' && payload.skill.length > 0 && payload.skill.length <= 24
+    && isVector3(payload.position) && isVector3(payload.forward)
+    && isFiniteNumber(payload.altitude) && payload.altitude >= 0 && payload.altitude <= 10000
+    && isFiniteNumber(payload.value) && payload.value >= 0 && payload.value <= 1000;
 }
 
 export function isValidEnemySpawn(payload) {

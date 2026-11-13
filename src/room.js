@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { rollFamily } from './loot.js';
 import data from './gameData.json' with { type: 'json' };
 import { Duels } from './duels.js';
-import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, TICK, WELCOME } from './protocol.js';
+import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, REMOTE_SKILL, TICK, WELCOME } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
 const IDLE_TIMEOUT_MS = 300_000;
@@ -231,6 +231,15 @@ export class Room {
     if (player) player.lastActivityAt = Date.now();
   }
 
+  // A habilidade de um jogador é só repassada aos outros, para eles a desenharem (no máximo uma a cada SKILL_MIN_GAP_MS por jogador).
+  handleSkill(id, skill) {
+    const player = this.players.get(id);
+    const now = Date.now();
+    if (!player || now - (player.lastSkillAt ?? 0) < SKILL_MIN_GAP_MS) return;
+    player.lastSkillAt = now;
+    this.broadcast({ t: REMOTE_SKILL, id, skill: skill.skill, position: skill.position, forward: skill.forward, altitude: skill.altitude, value: skill.value }, id);
+  }
+
   // O tiro do jogador é só repassado aos outros, com para onde a nave apontava (ver isValidShot): quem recebe calcula a trajetória.
   handleShot(id, shot) {
     if (!this.players.has(id)) return;
@@ -327,6 +336,8 @@ export class Room {
     }
   }
 }
+
+const SKILL_MIN_GAP_MS = 100;
 
 // Vagas por sala: passou disso, o jogador cai numa cópia nova do mesmo mapa (`mapa#2`), como os servidores do Roblox.
 export const MAX_ROOM_PLAYERS = Number(process.env.MAX_ROOM_PLAYERS) || 20;

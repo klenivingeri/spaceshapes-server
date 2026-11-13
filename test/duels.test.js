@@ -118,3 +118,19 @@ test('sala lotada abre uma cópia nova do mapa e reaproveita vagas', () => {
     for (const room of registry.rooms.values()) room.dispose();
   }
 });
+
+test('habilidade de um jogador é repassada só aos outros, e o servidor confere o formato', async () => {
+  const { isValidSkill } = await import('../src/protocol.js');
+  const { room, a, b, idA } = duelRoom();
+  try {
+    const skill = { skill: 'slowField', position: [0, 0, 1], forward: [1, 0, 0], altitude: 0, value: 20 };
+    assert.equal(isValidSkill({ t: 'skill', ...skill }), true);
+    assert.equal(isValidSkill({ t: 'skill', ...skill, position: [0, 1] }), false);
+    assert.equal(isValidSkill({ t: 'skill', ...skill, value: -1 }), false);
+    room.handleSkill(idA, skill);
+    assert.deepEqual(b.last('skill'), { t: 'skill', id: idA, ...skill });
+    assert.equal(a.last('skill'), undefined);
+  } finally {
+    room.dispose();
+  }
+});
