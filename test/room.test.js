@@ -425,3 +425,17 @@ test('sozinho na sala o host nunca é trocado', () => {
     } finally { room.dispose(); }
   });
 });
+
+test('a cor da nave de quem entra chega aos outros no welcome e no playerJoin (sem cor = null)', () => {
+  const room = new Room('test-color');
+  const first = socket();
+  const second = socket();
+  try {
+    room.join(first, { name: 'A', shipId: 'ship', colorId: 'azul' });
+    room.join(second, { name: 'B', shipId: 'ship' });
+    assert.equal(second.messages.find((message) => message.t === 'welcome').players[0].colorId, 'azul');
+    assert.equal(first.messages.find((message) => message.t === 'playerJoin').colorId, null);
+  } finally {
+    room.dispose();
+  }
+});

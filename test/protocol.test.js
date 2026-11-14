@@ -88,3 +88,11 @@ test('tiro do jogador: origem e direção 3D, voo e qual tiro desenhar', () => {
   // o formato antigo (ângulo e origem 2D do mapa de cada cliente) não vale mais
   assert.equal(isValidShot({ angle: 1, originX: 0, originY: 0, bulletSpeed: 300, shotId: 'a-2' }), false);
 });
+
+test('join aceita a cor da nave (texto curto ou null) e recusa o resto', () => {
+  const base = { room: 'world', name: 'A', shipId: 'ship' };
+  assert.equal(isValidJoin({ ...base, colorId: 'azul' }), true);
+  assert.equal(isValidJoin({ ...base, colorId: null }), true);
+  assert.equal(isValidJoin({ ...base, colorId: 7 }), false);
+  assert.equal(isValidJoin({ ...base, colorId: 'x'.repeat(41) }), false);
+});

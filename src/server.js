@@ -57,6 +57,7 @@ wss.on('connection', (ws) => {
       playerId = room.join(ws, {
         name: message.name,
         shipId: message.shipId,
+        colorId: message.colorId ?? null,
         identityId: message.identityId,
         position: message.position,
         forward: message.forward,

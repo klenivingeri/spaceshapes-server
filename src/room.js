@@ -52,6 +52,7 @@ export class Room {
       id,
       name: player.name,
       shipId: player.shipId,
+      colorId: player.colorId,
       position: player.position,
       forward: player.forward,
       altitude: player.altitude,
@@ -71,7 +72,7 @@ export class Room {
   }
 
   join(ws, {
-    name, shipId, identityId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0, level = 1,
+    name, shipId, colorId = null, identityId, position = [0, 0, 1], forward = [1, 0, 0], altitude = 0, angle = 0, speed = 0, level = 1,
   }) {
     this.evictDuplicateIdentity(identityId);
     const id = randomUUID();
@@ -79,7 +80,7 @@ export class Room {
     const assignsEnemyAuthority = !previousAuthorityId || this.enemies.size === 0;
     if (assignsEnemyAuthority) this.enemyAuthorityId = id;
     this.players.set(id, {
-      ws, name, shipId, identityId, position, forward, altitude,
+      ws, name, shipId, colorId, identityId, position, forward, altitude,
       x: 0, y: 0, angle, speed, level, hp: START_HP, lastActivityAt: Date.now(), closingForIdle: false,
     });
     sendJson(ws, {

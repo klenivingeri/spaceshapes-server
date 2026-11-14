@@ -74,10 +74,11 @@ function isValidDropOptions(options) {
     && options.chips.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 80);
 }
 
-// Mensagem de join: nome e shipId livres (texto), mas sempre string e não vazios.
+// Mensagem de join: nome e shipId livres (texto), mas sempre string e não vazios; `colorId` (a cor da nave, só cosmética) é opcional: texto curto ou null.
 export function isValidJoin(payload) {
   return payload && typeof payload.room === 'string' && payload.room.length > 0
     && typeof payload.name === 'string' && typeof payload.shipId === 'string'
+    && (!('colorId' in payload) || payload.colorId === null || (typeof payload.colorId === 'string' && payload.colorId.length <= 40))
     && (!('identityId' in payload) || isValidIdentityId(payload.identityId))
     && (!('position' in payload) || isVector3(payload.position))
     && (!('forward' in payload) || isVector3(payload.forward))
