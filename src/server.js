@@ -3,6 +3,8 @@ import { connectDb } from './db.js';
 import { createHttpServer } from './httpServer.js';
 import { MemoryInventoryStore, MongoInventoryStore, creditInventory } from './inventory.js';
 import { MarketBoard } from './market.js';
+import { DailyBoard } from './daily.js';
+import { MongoDailyStore } from './dailyStore.js';
 import { RankingBoard, DEFAULT_REFRESH_MS } from './ranking.js';
 import { MongoRankingStore } from './rankingStore.js';
 import { RunLedger } from './runs.js';
@@ -32,6 +34,7 @@ const httpServer = createHttpServer({
   runs: new RunLedger(db ? new MongoRunStore(db) : undefined),
   // O ranking é refeito a cada RANKING_REFRESH_HOURS horas (padrão 3).
   ranking: new RankingBoard(db ? new MongoRankingStore(db) : undefined, { refreshMs: Number(process.env.RANKING_REFRESH_HOURS) * 3_600_000 || DEFAULT_REFRESH_MS }),
+  daily: new DailyBoard(db ? new MongoDailyStore(db) : undefined),
 });
 
 const wss = new WebSocketServer({ server: httpServer });

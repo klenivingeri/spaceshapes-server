@@ -1,5 +1,6 @@
 {
   "families": [
+    "andarilho",
     "asa",
     "ascua",
     "aurora",
@@ -11,6 +12,7 @@
     "cauda-de-fogo",
     "centelha",
     "colosso",
+    "cometa",
     "corvo-cinza-2",
     "corvo-cinza-rapina",
     "crista",
@@ -126,7 +128,50 @@
     "base": 10,
     "step": 5
   },
+  "daily": {
+    "rewards": [
+      {
+        "coins": 200,
+        "ore": 2
+      },
+      {
+        "coins": 300,
+        "ore": 3
+      },
+      {
+        "coins": 400,
+        "ore": 4
+      },
+      {
+        "coins": 500,
+        "ore": 5
+      },
+      {
+        "coins": 700,
+        "ore": 7
+      },
+      {
+        "coins": 900,
+        "ore": 9
+      },
+      {
+        "coins": 1500,
+        "ore": 15,
+        "fragments": 3
+      }
+    ],
+    "comebackAfterDays": 4,
+    "comebackCoinsPerDay": 150,
+    "comebackMaxDays": 14
+  },
   "familyShips": {
+    "andarilho": [
+      "andarilho",
+      "errante",
+      "peregrino",
+      "nomade",
+      "viajante"
+    ],
     "asa": [
       "asa",
       "asa-gemea",
@@ -192,6 +237,13 @@
       "colosso-bastiao",
       "colosso-fortaleza",
       "colosso-imperador"
+    ],
+    "cometa": [
+      "cometa",
+      "meteoro",
+      "bolido",
+      "nova",
+      "supernova"
     ],
     "corvo-cinza-2": [
       "corvo-cinza-2"

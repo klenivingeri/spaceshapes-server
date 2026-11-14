@@ -6,6 +6,7 @@ import { MarketBoard, MarketError } from './market.js';
 import { RankingBoard, RankingError } from './ranking.js';
 import { RunError, RunLedger } from './runs.js';
 import { createSession } from './session.js';
+import { DailyBoard, DailyError } from './daily.js';
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });
@@ -155,6 +156,26 @@ function handleRanking(req, res, ranking, url) {
   });
 }
 
+// Recompensa diária. GET /daily?id= → o retrato (dia de hoje, sequência, se já dá para resgatar, prêmio); POST /daily/claim `{ id, focus? }` →
+// o prêmio resgatado (ouro e diamantes o jogo aplica; os fragmentos o servidor credita no inventário e o jogo os põe na bolsa).
+function handleDaily(req, res, { daily, inventory }, url) {
+  return handleApi(req, res, 'recompensa diária', async () => {
+    if (url.pathname === '/daily' && req.method === 'GET') {
+      const id = url.searchParams.get('id');
+      authorizeIdentity(req, id);
+      return daily.status(id);
+    }
+    if (url.pathname === '/daily/claim' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      authorizeIdentity(req, body.id);
+      const claimed = await daily.claim(body.id, typeof body.focus === 'string' ? body.focus : null);
+      if (claimed.grants.length) await creditInventory(inventory, body.id, claimed.grants);
+      return claimed;
+    }
+    throw new DailyError('Rota não encontrada.', 404);
+  });
+}
+
 async function handleGoogleAuth(req, res, authenticateGoogle) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') {
@@ -185,6 +206,7 @@ export function createHttpServer({
   inventory = new MemoryInventoryStore(),
   runs = new RunLedger(),
   ranking = new RankingBoard(),
+  daily = new DailyBoard(),
 } = {}) {
   return createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -194,6 +216,10 @@ export function createHttpServer({
     }
     if (url.pathname === '/ranking' || url.pathname.startsWith('/ranking/')) {
       await handleRanking(req, res, ranking, url);
+      return;
+    }
+    if (url.pathname === '/daily' || url.pathname.startsWith('/daily/')) {
+      await handleDaily(req, res, { daily, inventory }, url);
       return;
     }
     if (url.pathname.startsWith('/run/')) {
