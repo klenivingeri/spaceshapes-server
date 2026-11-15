@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { rollFamily } from './loot.js';
 import data from './gameData.json' with { type: 'json' };
 import { Duels } from './duels.js';
-import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, REMOTE_SKILL, TICK, WELCOME } from './protocol.js';
+import { DROP_COLLECTED, ENEMY_AUTHORITY, ENEMY_DAMAGE, ENEMY_DROP, ENEMY_SHOT, ENEMY_SPAWN, ENEMY_STATES, PLAYER_JOIN, PLAYER_LEAVE, PLAYER_RENAME, REMOTE_SHOT, REMOTE_SKILL, TICK, WELCOME, shotSize } from './protocol.js';
 
 const TICK_MS = 50; // 20 Hz
 const IDLE_TIMEOUT_MS = 300_000;
@@ -142,7 +142,7 @@ export class Room {
     if (!enemy?.alive) return;
     enemy.hp = Math.max(0, enemy.hp - damage);
     enemy.alive = enemy.hp > 0;
-    this.broadcast({ t: ENEMY_DAMAGE, id: enemyId, damage, hp: enemy.hp, killerId: id, dead: !enemy.alive });
+    this.broadcast({ t: ENEMY_DAMAGE, id: enemyId, hp: enemy.hp, killerId: id, dead: !enemy.alive });
     if (!enemy.alive) {
       this.enemies.delete(enemyId);
       this.createEnemyDrops(enemy, id);
@@ -257,6 +257,7 @@ export class Room {
       range: shot.range,
       bullet: shot.bullet,
       index: shot.index,
+      size: shotSize(shot),
     }, id);
   }
 

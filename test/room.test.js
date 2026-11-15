@@ -276,7 +276,7 @@ test('somente a autoridade cria inimigos, estados são retransmitidos e dano é 
 
     room.handleEnemyDamage(guestId, { id: enemy.id, damage: 3 });
     assert.deepEqual(guest.messages.at(-1), {
-      t: 'enemyDamage', id: enemy.id, damage: 3, hp: 0, killerId: guestId, dead: true,
+      t: 'enemyDamage', id: enemy.id, hp: 0, killerId: guestId, dead: true,
     });
     assert.equal(room.enemies.has(enemy.id), false);
     assert.equal(lateGuest.messages.at(-1).dead, true);

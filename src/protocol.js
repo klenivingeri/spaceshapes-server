@@ -122,6 +122,11 @@ export function isValidShot(payload) {
     && Number.isInteger(payload.index) && payload.index >= 0 && payload.index < 16;
 }
 
+// `size` (metade do lado do bloco do tiro) é só visual: se não for um número razoável, o tiro segue sem ele em vez de ser descartado.
+export function shotSize(payload) {
+  return isFiniteNumber(payload.size) && payload.size > 0 && payload.size <= 500 ? payload.size : undefined;
+}
+
 // Uso de uma habilidade: `skill` (id do catálogo), `position`/`forward` (ponto da placa e direção onde ela age, como no tiro),
 // `altitude` de quem usou e `value` (o que ela vale no ponto atual). Quem recebe só desenha; o dano é de quem usou (ver duels.js).
 export function isValidSkill(payload) {
